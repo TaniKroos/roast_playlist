@@ -1,6 +1,7 @@
 import { AppError } from "../errors";
 import { parsePlaylistLink } from "../../shared/parse-url";
 import { fetchYoutubePlaylist } from "./youtube";
+import { fetchAmazonPlaylist, resolveAmazonShortLink } from "./amazon";
 import { fetchApplePlaylist } from "./apple";
 import { fetchSpotifyPlaylist, resolveSpotifyShortLink } from "./spotify";
 import { parsePastedSongs } from "./paste";
@@ -24,6 +25,11 @@ export async function loadPlaylist(mode: InputMode, input: string, env: SourceEn
       const id = link.playlistId ?? (await resolveSpotifyShortLink(link.shortUrl ?? "", fetchImpl).catch(() => null));
       if (!id) throw new AppError("invalid_link", "That Spotify link isn't a playlist. Share the playlist itself (⋯ → Share → Copy link).", 400, "Spotify");
       return fetchSpotifyPlaylist(id, fetchImpl);
+    }
+    case "amazon": {
+      const embed = link.embedUrl ?? (link.shortUrl ? await resolveAmazonShortLink(link.shortUrl, fetchImpl).catch(() => null) : null);
+      if (!embed) throw new AppError("invalid_link", "That Amazon link isn't a playlist. Open the playlist → Share → Copy link.", 400, "Amazon Music");
+      return fetchAmazonPlaylist(embed, fetchImpl);
     }
     case "unsupported":
       throw new AppError("unsupported_platform", `We can't read ${link.name} links (yet). Paste your songs and we'll roast them anyway.`, 422, link.name);

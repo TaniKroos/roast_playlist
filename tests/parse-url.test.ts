@@ -44,11 +44,24 @@ describe("parsePlaylistLink", () => {
 
   it.each([
     ["https://www.jiosaavn.com/featured/x/abc", "JioSaavn"],
-    ["https://music.amazon.in/playlists/B0XYZ", "Amazon Music"],
     ["https://gaana.com/playlist/x", "Gaana"],
     ["https://soundcloud.com/a/sets/b", "SoundCloud"],
   ])("unsupported: %s", (url, name) => {
     expect(parsePlaylistLink(url)).toEqual({ platform: "unsupported", name });
+  });
+
+  it.each([
+    ["https://music.amazon.in/playlists/B07646V4CG?ref=dm_sh_x", "https://music.amazon.in/embed/B07646V4CG/"],
+    ["https://music.amazon.com/user-playlists/e28b0c914d8f411e9273fb59574f166bi8n0", "https://music.amazon.com/embed/e28b0c914d8f411e9273fb59574f166bi8n0/"],
+    ["music.amazon.co.uk/playlists/B08MVBFYTC/", "https://music.amazon.co.uk/embed/B08MVBFYTC/"],
+    ["https://music.amazon.in/albums/B07T4P3H63", null],
+  ])("Amazon Music: %s", (url, embedUrl) => {
+    expect(parsePlaylistLink(url)).toEqual({ platform: "amazon", embedUrl });
+  });
+
+  it("Amazon short links and non-music Amazon pages", () => {
+    expect(parsePlaylistLink("https://amzn.in/d/abc123")).toEqual({ platform: "amazon", embedUrl: null, shortUrl: "https://amzn.in/d/abc123" });
+    expect(parsePlaylistLink("https://www.amazon.in/dp/B0XYZ")).toEqual({ platform: "unsupported", name: "Amazon" });
   });
 
   it.each(["", "not a url", "javascript:alert(1)", "ftp://x.com/a", "localhost"])("invalid: %s", (s) => {

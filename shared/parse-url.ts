@@ -4,12 +4,12 @@ export type LinkInfo =
   | { platform: "youtube"; listId: string }
   | { platform: "spotify"; playlistId: string | null; shortUrl?: string }
   | { platform: "apple"; url: string }
+  | { platform: "amazon"; embedUrl: string | null; shortUrl?: string }
   | { platform: "unsupported"; name: string }
   | { platform: "invalid" };
 
 const OTHER_PLATFORMS: [RegExp, string][] = [
   [/(^|\.)jiosaavn\.com$|(^|\.)saavn\.com$/, "JioSaavn"],
-  [/(^|\.)music\.amazon\.|(^|\.)amazon\.[a-z.]+$/, "Amazon Music"],
   [/(^|\.)gaana\.com$/, "Gaana"],
   [/(^|\.)wynk\.in$/, "Wynk"],
   [/(^|\.)soundcloud\.com$/, "SoundCloud"],
@@ -60,6 +60,17 @@ export function parsePlaylistLink(raw: string): LinkInfo {
       url: `https://music.apple.com/${m[1]}/playlist/${encodeURIComponent(decodeURIComponent(m[2]))}/${m[3]}`,
     };
   }
+
+  // Amazon Music: music.amazon.<tld>/playlists/<ASIN> or /user-playlists/<id>
+  if (/^music\.amazon\.(com|in|co\.uk|de|fr|it|es|ca|com\.au|co\.jp|com\.br|com\.mx)$/.test(host)) {
+    const m = /^\/(?:playlists|user-playlists|community-playlists)\/([A-Za-z0-9]{10,64})\/?$/.exec(url.pathname);
+    // Rebuild from validated parts so we only ever fetch the official embed widget.
+    return { platform: "amazon", embedUrl: m ? `https://${host}/embed/${m[1]}/` : null };
+  }
+  if (/^(amzn\.(to|in|eu|asia)|a\.co)$/.test(host)) {
+    return { platform: "amazon", embedUrl: null, shortUrl: `https://${host}${url.pathname}` };
+  }
+  if (/(^|\.)amazon\.[a-z.]+$/.test(host)) return { platform: "unsupported", name: "Amazon" };
 
   for (const [re, name] of OTHER_PLATFORMS) {
     if (re.test(host)) return { platform: "unsupported", name };

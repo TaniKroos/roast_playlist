@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, type FormEvent, type ReactNode } from "reac
 import { parsePlaylistLink } from "../../shared/parse-url";
 import { LIMITS, type InputMode, type Language } from "../../shared/types";
 import { MARQUEE, SAMPLES } from "../lib/content";
-import { AppleMusicIcon, LinkIcon, ListIcon, SpotifyIcon, WarnIcon, YouTubeIcon } from "./Icons";
+import { AmazonMusicIcon, AppleMusicIcon, LinkIcon, ListIcon, SpotifyIcon, WarnIcon, YouTubeIcon } from "./Icons";
 
 export interface FormState {
   mode: InputMode;
@@ -25,6 +25,10 @@ function detect(link: string): Detection {
   switch (info.platform) {
     case "youtube":
       return { tone: "good", icon: <YouTubeIcon />, label: "YouTube", hint: "Nice. Public or unlisted playlists only." };
+    case "amazon":
+      return info.embedUrl || info.shortUrl
+        ? { tone: "good", icon: <AmazonMusicIcon />, label: "Amazon", hint: "Public Amazon Music playlist. We read up to ~100 tracks." }
+        : { tone: "bad", icon: <AmazonMusicIcon />, label: "Amazon", hint: "That's an Amazon Music link, but not a playlist." };
     case "apple":
       return { tone: "good", icon: <AppleMusicIcon />, label: "Apple Music", hint: "Public Apple Music playlist. Best effort, fingers crossed." };
     case "spotify":
@@ -153,7 +157,7 @@ export function Home({ form, setForm, onSubmit }: Props) {
                   )}
                 </span>
               ) : (
-                <span>Spotify, YouTube, YouTube Music &amp; Apple Music links work. Anything else → paste songs.</span>
+                <span>Spotify, YouTube, Apple Music &amp; Amazon Music links work. Anything else → paste songs.</span>
               )}
             </div>
           </>
@@ -173,7 +177,7 @@ export function Home({ form, setForm, onSubmit }: Props) {
               />
             </div>
             <div className="hint" id="songs-hint">
-              <span>Works for JioSaavn, Amazon, anything. "Song - Artist" is best.</span>
+              <span>Works for JioSaavn, Gaana, anything. "Song - Artist" is best.</span>
               <span className={`counter${tooLong ? " over" : ""}`}>
                 {songLines}/{LIMITS.pasteMaxLines}
               </span>
@@ -223,7 +227,7 @@ export function Home({ form, setForm, onSubmit }: Props) {
         <div className="step">
           <span className="n">01</span>
           <h3>Drop it</h3>
-          <p>A public Spotify, YouTube or Apple Music playlist, or just type your songs.</p>
+          <p>A public Spotify, YouTube, Apple Music or Amazon Music playlist, or just type your songs.</p>
         </div>
         <div className="step">
           <span className="n">02</span>

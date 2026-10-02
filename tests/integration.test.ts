@@ -168,6 +168,39 @@ describe("POST /api/roast", () => {
     expect(!data.ok && data.code).toBe("invalid_link");
   });
 
+  it("Amazon Music embed widget is parsed (no login)", async () => {
+    const row = (t: string, a: string) =>
+      `<li class="trackListItem"><div class="trackListTitle"><a aria-label="song, ${t}">${t}</a></div><div class="trackListArtist"><a aria-label="artist, ${a}">${a}</a></div></li>`;
+    const page = `<html><title>Amazon Music - Playlist 100 Greatest Bollywood Songs</title><ul>${row("Mere Sohneya", "Sachet Tandon &amp; Irshad Kamil")}${row("Kabira", "Pritam, Tochi Raina &amp; Rekha Bhardwaj")}${row("Tum Hi Ho", "Arijit Singh")}<li class="other">no song here</li></ul></html>`;
+    const calls = mockFetch((url) => (url.startsWith("https://music.amazon.in/embed/") ? new Response(page) : okChat(JSON.stringify(ROAST))));
+    const { data } = await roast(env([free]), { mode: "link", input: "https://music.amazon.in/playlists/B07646V4CG?ref=x" });
+    expect(calls).toContain("https://music.amazon.in/embed/B07646V4CG/");
+    expect(data.ok).toBe(true);
+    if (data.ok) {
+      expect(data.meta.source).toBe("amazon");
+      expect(data.meta.playlistName).toBe("100 Greatest Bollywood Songs");
+      expect(data.meta.stats.trackCount).toBe(3);
+      expect(data.meta.stats.topArtists.map((a) => a.artist)).toContain("Sachet Tandon");
+    }
+  });
+
+  it("missing Amazon Music playlist → friendly error", async () => {
+    mockFetch(() => new Response("<title></title>", { status: 404 }));
+    const { status, data } = await roast(env([free]), { mode: "link", input: "https://music.amazon.in/playlists/B000000000" });
+    expect(status).toBe(404);
+    expect(!data.ok && data.code).toBe("private_playlist");
+  });
+
+  it("Amazon short link only resolves to a music.amazon playlist", async () => {
+    const calls = mockFetch((url) => {
+      if (url.startsWith("https://amzn.in/")) return new Response(null, { status: 301, headers: { location: "https://www.amazon.in/dp/B0SOMETHING" } });
+      return okChat("{}");
+    });
+    const { data } = await roast(env([free]), { mode: "link", input: "https://amzn.in/d/abc123" });
+    expect(!data.ok && data.code).toBe("invalid_link");
+    expect(calls.some((c) => c.includes("www.amazon.in"))).toBe(false);
+  });
+
   it("Apple Music page is parsed", async () => {
     const page = `<html><script type="application/json" id="serialized-server-data">${JSON.stringify({
       data: [{ data: { sections: [

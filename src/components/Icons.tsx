@@ -27,6 +27,14 @@ export const AppleMusicIcon = (p: P) => (
     <path d="M15.5 6.2v8.3a2 2 0 1 1-1.3-1.9V8.4l-4.6 1v6.3a2 2 0 1 1-1.3-1.9V7.9z" fill="#fff" />
   </svg>
 );
+export const AmazonMusicIcon = (p: P) => (
+  <svg viewBox="0 0 24 24" aria-hidden {...p}>
+    <rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="#25d1da" />
+    <path d="M6.5 15.2c3.3 2 7.8 2.2 11 .3" stroke="#0f1317" strokeWidth="1.7" strokeLinecap="round" fill="none" />
+    <path d="M15.6 14.4l2.2 1.1-.9 2.2" stroke="#0f1317" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <path d="M9 12V7.2l5-1v4.6" stroke="#0f1317" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+  </svg>
+);
 export const LinkIcon = (p: P) => (
   <svg {...base(p)}>
     <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />

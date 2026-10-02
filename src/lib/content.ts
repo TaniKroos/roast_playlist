@@ -117,4 +117,4 @@ export function basicTier(score: number): string {
   return "Pumpkin spice latte in audio form";
 }
 
-export const SOURCE_NAMES = { youtube: "YouTube", spotify: "Spotify", apple: "Apple Music", paste: "Pasted songs" } as const;
+export const SOURCE_NAMES = { youtube: "YouTube", spotify: "Spotify", apple: "Apple Music", amazon: "Amazon Music", paste: "Pasted songs" } as const;

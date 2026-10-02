@@ -38,7 +38,7 @@ export function ErrorView({ code, message, onPaste, onRetry, onBack }: Props) {
       {code === "private_playlist" && (
         <div className="howto">
           <b>Make it visible:</b> on <b>YouTube</b>, playlist → ⋮ → Privacy → <b>Public</b> or <b>Unlisted</b>. On <b>Spotify</b>, playlist → ⋯ →
-          <b>Add to profile</b> / make it public. Personal mixes (Liked Songs, "My Mix") can't be read. Paste those songs instead.
+          <b>Add to profile</b> / make it public. On <b>Amazon Music</b>, playlist → ⋯ → <b>Make public</b>. Personal mixes (Liked Songs, "My Mix") can't be read. Paste those songs instead.
         </div>
       )}
 

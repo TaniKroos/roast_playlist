@@ -1,6 +1,6 @@
 // Types shared by the frontend and the Worker.
 
-export type Source = "youtube" | "spotify" | "apple" | "paste";
+export type Source = "youtube" | "spotify" | "apple" | "amazon" | "paste";
 export type Language = "english" | "hinglish";
 export type InputMode = "link" | "paste";
 

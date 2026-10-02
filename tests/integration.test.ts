@@ -84,7 +84,7 @@ describe("POST /api/roast", () => {
     expect(prompt).not.toContain("Official Video");
   });
 
-  it("YouTube: reads up to 1,000 tracks (21 calls max), stats over all, LLM gets a 60-track sample", async () => {
+  it("YouTube: reads up to 1,000 tracks (21 calls max); by default the LLM sees all 1,000", async () => {
     let prompt = "";
     let pages = 0;
     const calls = mockFetch(async (url, init) => {
@@ -98,7 +98,19 @@ describe("POST /api/roast", () => {
     expect(data.ok && data.meta.stats.trackCount).toBe(1000);
     const user = (JSON.parse(prompt) as { messages: { content: string }[] }).messages[1].content;
     expect(user).toContain('"totalTracks":1000');
-    expect(user).toContain('"sampledTracks":60');
+    expect(user).toContain('"sampledTracks":1000');
+  });
+
+  it("LLM_MAX_TRACKS samples long playlists down (first third, random middle, last sixth)", async () => {
+    let prompt = "";
+    mockFetch((_url, init) => ((prompt = String(init?.body)), okChat(JSON.stringify(ROAST))));
+    const songs = Array.from({ length: 900 }, (_, i) => `Song ${i} - Artist ${i % 40}`).join("\n");
+    const { data } = await roast(env([free], { LLM_MAX_TRACKS: "300" }), { mode: "paste", input: songs });
+    expect(data.ok && data.meta.stats.trackCount).toBe(900);
+    const user = (JSON.parse(prompt) as { messages: { content: string }[] }).messages[1].content;
+    expect(user).toContain('"sampledTracks":300');
+    expect(user).toContain('["Song 0","Artist 0"]');
+    expect(user).toContain('["Song 899","Artist 19"]');
   });
 
   it("paste mode accepts 1,000 songs", async () => {
@@ -231,7 +243,7 @@ describe("POST /api/roast", () => {
     expect(sent.messages[0].content).toContain("HINGLISH");
     const user = sent.messages[1].content;
     expect(user.match(/<\/playlist_data>/g)).toHaveLength(1); // the injected closing tag was escaped
-    expect(user).toContain('"title":"Brown Munde","artist":"AP Dhillon"');
+    expect(user).toContain('["Brown Munde","AP Dhillon"]');
   });
 
   it("falls back on 429 to the next provider", async () => {
@@ -309,7 +321,7 @@ describe("generateRoast (mock provider)", () => {
     const user = `<playlist_data>\n${JSON.stringify({
       playlistName: "x",
       stats: { totalTracks: 3, topArtists: [{ artist: "Arijit Singh", count: 2 }], topArtistSharePercent: 67, uniqueArtists: 2 },
-      tracks: [{ title: "Tum Hi Ho", artist: "Arijit Singh" }, { title: "Channa Mereya", artist: "Arijit Singh" }, { title: "Husn", artist: "Anuv Jain" }],
+      tracks: [["Tum Hi Ho", "Arijit Singh"], ["Channa Mereya", "Arijit Singh"], ["Husn", "Anuv Jain"]],
     })}\n</playlist_data>`;
     const res = await generateRoast([{ name: "mock", type: "mock" }], { system: "Language: HINGLISH.", user }, { env: {} });
     expect(res.roast.roastLines.length).toBeGreaterThanOrEqual(3);

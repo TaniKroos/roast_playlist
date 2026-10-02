@@ -1,4 +1,4 @@
-// Usage: npm run llm:test -- <providerName> [--hinglish]
+// Usage: npm run llm:test -- <providerName> [--hinglish] [--file songs.txt] [--tracks N]
 // Sends a sample playlist to ONE provider from LLM_PROVIDERS (read from .dev.vars / env)
 // and prints the parsed roast, latency, and estimated cost.
 
@@ -33,6 +33,12 @@ Satranga - Arijit Singh`;
 
 const name = process.argv[2];
 const hinglish = process.argv.includes("--hinglish");
+const argVal = (flag: string) => {
+  const i = process.argv.indexOf(flag);
+  return i > 0 ? process.argv[i + 1] : undefined;
+};
+const file = argVal("--file");
+const wantTracks = Number(argVal("--tracks")) || 0;
 const env = { ...loadDevVars(), ...process.env } as Record<string, string>;
 const providers = parseProviders(env.LLM_PROVIDERS);
 
@@ -46,17 +52,21 @@ if (!provider) {
   process.exit(1);
 }
 
-const playlist = parsePastedSongs(SAMPLE);
+// --file: paste-format song list (one "Song - Artist" per line). --tracks N: cycle it up to N lines.
+let lines = (file ? readFileSync(file, "utf8") : SAMPLE).split("\n").filter((l) => l.trim());
+if (wantTracks) lines = Array.from({ length: wantTracks }, (_, i) => lines[i % lines.length]);
+const playlist = { ...parsePastedSongs(lines.join("\n").slice(0, 60_000)) };
 const stats = computeStats(playlist.tracks);
 const t0 = Date.now();
 try {
   const res = await generateRoast(
     [provider],
-    { system: buildSystemPrompt(hinglish ? "hinglish" : "english"), user: buildUserPrompt({ ...playlist, tracks: sampleTracks(playlist.tracks) }, stats) },
+    { system: buildSystemPrompt(hinglish ? "hinglish" : "english"), user: buildUserPrompt({ ...playlist, tracks: sampleTracks(playlist.tracks, Number(env.LLM_MAX_TRACKS) || undefined) }, stats) },
     { env },
   );
   console.log(JSON.stringify(res.roast, null, 2));
-  console.log(`\nprovider: ${res.provider} (${provider.model ?? provider.type})`);
+  console.log(`\ntracks:   ${stats.trackCount} sent to the model`);
+  console.log(`provider: ${res.provider} (${provider.model ?? provider.type})`);
   console.log(`latency:  ${res.latencyMs} ms (total ${Date.now() - t0} ms incl. retries)`);
   console.log(`tokens:   in ${res.inputTokens ?? "?"} / out ${res.outputTokens ?? "?"}`);
   if (res.estimatedCostUsd != null) {

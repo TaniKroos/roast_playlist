@@ -73,8 +73,8 @@ export const LIMITS = {
   maxPlaylistTracks: 1000,
   pasteMaxLines: 1000,
   pasteMaxChars: 60_000,
-  /** Tracks actually sent to the LLM (sampled), to keep cost and latency flat. */
-  trackCap: 60,
+  /** Default max tracks sent to the LLM (override with env LLM_MAX_TRACKS). Longer playlists are sampled. */
+  trackCap: 1000,
   fieldMaxChars: 60,
   playlistNameMaxChars: 80,
 } as const;

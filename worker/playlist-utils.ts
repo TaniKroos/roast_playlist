@@ -7,7 +7,10 @@ export function truncate(s: string, max: number): string {
   return clean.length <= max ? clean : clean.slice(0, max - 1).trimEnd() + "…";
 }
 
-/** Cap at 60: first 20, 30 random from the middle (kept in order), last 10. */
+/**
+ * Cap the list for the LLM, keeping the spec's 20/30/10 proportions: first third, last sixth,
+ * and a random (order-preserving) sample of the middle. At cap 60 that's exactly 20 / 30 / 10.
+ */
 export function sampleTracks(tracks: Track[], cap: number = LIMITS.trackCap, random: () => number = Math.random): Track[] {
   const clipped = tracks.map((t) => ({
     title: truncate(t.title, LIMITS.fieldMaxChars),
@@ -15,9 +18,11 @@ export function sampleTracks(tracks: Track[], cap: number = LIMITS.trackCap, ran
   }));
   if (clipped.length <= cap) return clipped;
 
-  const head = clipped.slice(0, 20);
-  const tail = clipped.slice(-10);
-  const middle = clipped.slice(20, clipped.length - 10);
+  const headN = Math.round(cap / 3);
+  const tailN = Math.round(cap / 6);
+  const head = clipped.slice(0, headN);
+  const tail = clipped.slice(-tailN);
+  const middle = clipped.slice(headN, clipped.length - tailN);
   const need = cap - head.length - tail.length;
 
   // Partial Fisher-Yates over indices, then sort to keep playlist order.

@@ -22,6 +22,8 @@
   ],
   "vars": {
     "DAILY_PAID_ROAST_LIMIT": "300",
+    // Max tracks sent to the LLM per roast (longer playlists are sampled). ~13 input tokens/track.
+    "LLM_MAX_TRACKS": "1000",
     // Turnstile *test* site key (always passes). Replace in production.
     "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
     "LLM_PROVIDERS": "[{\"name\":\"mock\",\"type\":\"mock\",\"paid\":false}]"

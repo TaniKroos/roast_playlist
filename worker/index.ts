@@ -14,6 +14,7 @@ export interface Env {
   COUNTERS?: KVNamespace;
   LLM_PROVIDERS?: string;
   DAILY_PAID_ROAST_LIMIT?: string;
+  LLM_MAX_TRACKS?: string;
   YOUTUBE_API_KEY?: string;
   TURNSTILE_SECRET?: string;
   TURNSTILE_SITE_KEY?: string;
@@ -84,7 +85,8 @@ async function handleRoast(request: Request, env: Env): Promise<Response> {
   if (!playlist.tracks.length) throw new AppError("empty_playlist", "That playlist is empty. Even we can't roast silence.", 422);
 
   const stats = computeStats(playlist.tracks);
-  const sampled = { ...playlist, tracks: sampleTracks(playlist.tracks) };
+  const llmCap = Math.max(10, Math.min(LIMITS.maxPlaylistTracks, Number(env.LLM_MAX_TRACKS) || LIMITS.trackCap));
+  const sampled = { ...playlist, tracks: sampleTracks(playlist.tracks, llmCap) };
 
   const limit = Number(env.DAILY_PAID_ROAST_LIMIT ?? 300);
   const counter = dailyPaidCounter(env.COUNTERS);

@@ -8,7 +8,7 @@ describe("sampleTracks", () => {
     expect(sampleTracks(make(10))).toHaveLength(10);
   });
 
-  it("samples first 20, 30 middle (in order), last 10", () => {
+  it("at cap 60 samples first 20, 30 middle (in order), last 10", () => {
     const out = sampleTracks(make(200), 60, () => 0.5);
     expect(out).toHaveLength(60);
     expect(out.slice(0, 20).map((t) => t.title)).toEqual(make(20).map((t) => t.title));
@@ -17,6 +17,13 @@ describe("sampleTracks", () => {
     expect(middle.every((n) => n >= 20 && n < 190)).toBe(true);
     expect([...middle].sort((a, b) => a - b)).toEqual(middle);
     expect(new Set(middle).size).toBe(30);
+  });
+
+  it("keeps the same proportions at larger caps", () => {
+    const out = sampleTracks(make(3000), 900, () => 0.3);
+    expect(out).toHaveLength(900);
+    expect(out[299].title).toBe("Song 299"); // head = 300
+    expect(out[750].title).toBe("Song 2850"); // tail = 150 → starts at 3000 - 150
   });
 
   it("truncates long fields to 60 chars", () => {

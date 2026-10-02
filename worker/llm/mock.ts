@@ -8,7 +8,7 @@ import { ProviderError, type Adapter } from "./types";
 interface Payload {
   playlistName: string;
   stats: { totalTracks: number; topArtists: { artist: string; count: number }[]; topArtistSharePercent: number; uniqueArtists: number };
-  tracks: { title: string; artist: string }[];
+  tracks: [string, string][];
 }
 
 const VIBES: [RegExp, string, string][] = [
@@ -39,7 +39,8 @@ export const mock: Adapter = async (cfg, args, _key, signal) => {
 
   const start = args.user.indexOf(DATA_OPEN + "\n");
   const end = args.user.lastIndexOf(DATA_CLOSE);
-  const data = JSON.parse(args.user.slice(start + DATA_OPEN.length, end)) as Payload;
+  const raw = JSON.parse(args.user.slice(start + DATA_OPEN.length, end)) as Payload;
+  const data = { ...raw, tracks: raw.tracks.map(([title, artist]) => ({ title, artist })) };
   const hinglish = /Language: HINGLISH/.test(args.system);
 
   const top = data.stats.topArtists[0]?.artist ?? "Unknown Artist";

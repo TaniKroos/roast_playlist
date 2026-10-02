@@ -18,7 +18,7 @@ The original build spec lives in [docs/build-prompt.md](docs/build-prompt.md).
 | Cloudflare **Pages** + Pages Function | **Cloudflare Workers with Static Assets** (same free tier, same `git push` deploys via Workers Builds) | Cloudflare now steers new projects to Workers + assets, and the **Rate Limiting binding** (`ratelimits`) is a Workers feature. One Worker serves the SPA and `/api/*`. |
 | Amazon Music (not in spec as a link source) | **Shipped (approved 2026-10-02):** reads Amazon's public **embed widget** (`music.amazon.<tld>/embed/<id>/`), which renders title + artist per track. Works for catalog playlists (`/playlists/B0…`) and public user playlists (`/user-playlists/…`), all regional stores; `amzn.to`/`amzn.in` short links are followed to `music.amazon.*` only. | The normal playlist pages are a JS app (non-browsers get a "browserWarning" page). Amazon's **internal web-player API** also works anonymously but was deliberately **not** used: it means impersonating the player, returns ~5.7 MB per playlist (over the free plan's 10 ms CPU), and a probe of it was blocked by a safety check. Same caveats as Spotify: ~100 tracks max, can break, falls back to paste. |
 | Apple Music (stretch) | **Shipped, best-effort.** Reads the public page's embedded `serialized-server-data` JSON (first ~50–100 tracks). | Verified live on 2026-10-02. If Apple changes the page, it fails gracefully to paste mode. |
-| Track cap 60 | Read up to **1,000 tracks** per playlist (owner request); **stats cover all of them**; the LLM still gets a **60-track sample** (first 20 + 30 random + last 10) | Sending 1,000 tracks to the LLM would cost ~15× more per roast and add seconds of latency. Per-source ceilings: YouTube 1,000 · paste 1,000 lines / 60k chars · **Spotify 100**, **Apple ~100**, **Amazon ~100**. Those three public pages render a fixed first batch with no pagination; going further would need each service's private player API (not used, see above). `LIMITS` in [shared/types.ts](shared/types.ts). |
+| Track cap 60 | Read up to **1,000 tracks** per playlist and send up to **1,000 to the LLM** (owner request), configurable via `LLM_MAX_TRACKS`. Longer lists are sampled with the spec's proportions (first ⅓, random middle in order, last ⅙; at 60 that's exactly 20/30/10). Tracks go to the model as compact `[title, artist]` pairs (~13 tokens/track). | Measured on Azure gpt-5.6 (2026-10-02): 100 tracks → 1.4k input tokens, 4.3 s; 500 → 6.7k, 5.8 s; 1,000 → 13.3k, 5.6 s. Latency barely moves; **cost per roast scales ~linearly with tracks** (see cost table). Per-source ceilings: YouTube 1,000 · paste 1,000 lines / 60k chars · **Spotify 100**, **Apple ~100**, **Amazon ~100**. Those three public pages render a fixed first batch with no pagination; going further would need each service's private player API (not used, see above). `LIMITS` in [shared/types.ts](shared/types.ts). |
 | YouTube "≤ ~3 API calls" | 1 × `playlists.list` + up to 20 × `playlistItems.list` = **max 21 units / roast** | Needed for 1,000 tracks (50 per page, sequential page tokens). Default quota 10,000 units/day → ~475 maximal roasts/day (a 100-track playlist still costs 3). Request a free quota increase in Google Cloud if needed. Each page adds ~0.2–0.4 s, so a 1,000-track YouTube playlist takes a few seconds longer. |
 | Schema "max N chars" | Structure is strictly validated (→ retry/fallback); strings that overshoot length are **clipped** at a word boundary instead of rejected | Models routinely overshoot by a few chars; rejecting those wastes a paid call. |
 | Daily kill switch counter | Workers **KV**, one key per UTC day, integer only, 2-day TTL | KV is eventually consistent → the cap is approximate (can overshoot by a few calls during a burst). Use a Durable Object if you need it exact. |
@@ -90,6 +90,7 @@ Covers: URL parsing for every supported format (YouTube/YT Music/watch+list/yout
 | `TURNSTILE_SITE_KEY` | var | | Public. Served to the browser via `GET /api/config`. Default = Cloudflare test key. |
 | `TURNSTILE_SECRET` | **secret** | | Verified server-side on every roast. |
 | `DAILY_PAID_ROAST_LIMIT` | var | | Default `300`. Counts every request sent to a provider with `"paid": true` (including the one JSON retry). |
+| `LLM_MAX_TRACKS` | var | | Default `1000`. Max tracks sent to the AI per roast; the main cost dial. |
 | `SPOTIFY_CLIENT_ID/SECRET` | — | | **Not needed** — Spotify is read from the public embed page. |
 
 Bindings (in [wrangler.jsonc](wrangler.jsonc)): `ROAST_LIMITER` (rate limit, 5 / 60 s), `COUNTERS` (KV for the daily counter), `ASSETS` (static site).
@@ -156,21 +157,23 @@ Base URLs as documented by each provider — **double-check before use**; severa
 
 ## Cost estimate
 
-Assumptions: ~1,500 input + ~450 output tokens per roast, ₹88 = $1, prices from public pricing pages as of Oct 2026 — **re-check before launch**.
+Input tokens depend on playlist size: **~1,500 for a 100-track playlist, ~13,500 for 1,000 tracks** (measured), plus ~450 output. ₹88 = $1, prices from public pricing pages as of Oct 2026 — **re-check before launch**.
 
-| Provider / model | $ / M in | $ / M out | Cost per roast | Roasts per ₹500 |
-|---|---|---|---|---|
-| Groq gpt-oss-20b (free tier) | 0 | 0 | ₹0 (rate-limited) | ∞ within free limits |
-| Groq gpt-oss-20b (paid) | 0.075 | 0.30 | ~₹0.022 | ~22,000 |
-| Gemini 2.5 Flash-Lite (paid) | 0.10 | 0.40 | ~₹0.029 | ~17,000 |
-| Groq Llama 3.3 70B | 0.59 | 0.79 | ~₹0.11 | ~4,500 |
-| Claude Haiku 4.5 | 1.00 | 5.00 | ~₹0.33 | ~1,500 |
+| Provider / model | $ / M in | $ / M out | Per roast, 100 tracks | Per roast, 1,000 tracks | Roasts per ₹500 (1,000-track worst case) |
+|---|---|---|---|---|---|
+| Groq gpt-oss-20b (free tier) | 0 | 0 | ₹0 | ₹0 — but a 13k-token request may exceed free-tier per-minute token limits and fall through to the next provider | — |
+| Groq gpt-oss-20b (paid) | 0.075 | 0.30 | ~₹0.022 | ~₹0.10 | ~5,000 |
+| Gemini 2.5 Flash-Lite (paid) | 0.10 | 0.40 | ~₹0.029 | ~₹0.135 | ~3,700 |
+| Groq Llama 3.3 70B | 0.59 | 0.79 | ~₹0.11 | ~₹0.73 | ~680 |
+| Claude Haiku 4.5 | 1.00 | 5.00 | ~₹0.33 | ~₹1.39 | ~360 |
+| Azure OpenAI (your deployment) | check your Azure price sheet | | 1.4k in / ~200 out | 13.3k in / ~250 out | `500 ÷ (₹ per roast)` |
 
 Fixed costs: Cloudflare Workers / static assets / KV / Turnstile / rate limiting → **₹0** on the free plan (100k Worker requests/day). Domain optional (~₹800–1,000/yr for a `.com`). YouTube API: free, 10,000 units/day = ~3,300 YouTube roasts/day at 3 units each.
 
-**Worst case with the kill switch** (every roast hits the paid fallback, including retries): `DAILY_PAID_ROAST_LIMIT × cost × 30`.
-- Flash-Lite, limit 300 → 300 × ₹0.029 × 30 ≈ **₹260/month** ✅
-- Haiku 4.5, limit 300 → ≈ ₹3,000/month ❌ → use **limit ≤ 50** with Haiku.
+**Worst case with the kill switch** (every paid call is a 1,000-track roast): `DAILY_PAID_ROAST_LIMIT × cost × 30`.
+- Flash-Lite, limit 300, 1,000 tracks → 300 × ₹0.135 × 30 ≈ **₹1,200/month** ❌ → to stay under ₹500 use **limit ≤ 120**, or `LLM_MAX_TRACKS=300` (≈ ₹0.045/roast → ₹400/month at limit 300).
+- Haiku 4.5 at 1,000 tracks → use **limit ≤ 12**, or lower `LLM_MAX_TRACKS`.
+- Most real roasts are smaller (Spotify/Apple/Amazon send ≤ 100 tracks), so typical spend is far below the worst case — but the cap must be sized for the worst case.
 
 ### Billing alerts / hard caps (do this for every paid provider)
 - **Google Cloud / Gemini:** Console → **Billing → Budgets & alerts** → create a budget (e.g. ₹400) with alerts at 50/90/100%. Budgets only *alert*, they don't stop spend. For a hard ceiling also go to **APIs & Services → Generative Language API → Quotas** and lower *requests per day*. Check AI Studio for a project spend cap too.
@@ -242,7 +245,7 @@ Layered, cheapest check first. A request that fails one layer never reaches the 
 - **No logging of request data.** The only logs are error class names and provider outcome codes (e.g. `groq-free=HTTP 429`), never prompts, responses, URLs or songs. A test enforces this. Worker observability is disabled in `wrangler.jsonc`.
 - **The only stored value** is one anonymous integer per UTC day (paid LLM calls), expiring after 2 days.
 - **Rate limiting** keys on the client IP inside Cloudflare's rate-limit binding (a 60-second edge counter). Our code never stores it. Turnstile verification does **not** forward the IP.
-- **Sent to the LLM:** a sample of up to 60 titles/artists (stats are computed over up to 1,000), the playlist name, and simple counts. No IP or identifiers. Untrusted text is fenced in `<playlist_data>` tags with `<` escaped, and the system prompt says to ignore instructions inside it.
+- **Sent to the LLM:** up to `LLM_MAX_TRACKS` (default 1,000) titles/artists, the playlist name, and simple counts. No IP or identifiers. Untrusted text is fenced in `<playlist_data>` tags with `<` escaped, and the system prompt says to ignore instructions inside it.
 - **Share card** is drawn on a `<canvas>` in the browser and never uploaded.
 - **No third-party trackers.** Fonts are self-hosted. A strict CSP allows scripts only from self and Turnstile ([public/_headers](public/_headers)).
 

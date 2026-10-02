@@ -56,3 +56,24 @@ describe("computeStats", () => {
     expect(primaryArtist("Badshah ft. Aastha Gill")).toBe("Badshah");
   });
 });
+
+import { parsePastedSongs } from "../worker/sources/paste";
+
+describe("parsePastedSongs", () => {
+  it.each([
+    ["295 - Sidhu Moose Wala", "295", "Sidhu Moose Wala"],
+    ["22 - Taylor Swift", "22", "Taylor Swift"],
+    ["1. Tum Hi Ho - Arijit Singh", "Tum Hi Ho", "Arijit Singh"],
+    ["3 - Kesariya - Arijit Singh", "Kesariya", "Arijit Singh"],
+    ["12) Softly - Karan Aujla 3:45", "Softly", "Karan Aujla"],
+    ["• Brown Munde by AP Dhillon", "Brown Munde", "AP Dhillon"],
+    ["- Husn - Anuv Jain", "Husn", "Anuv Jain"],
+    ["Satranga", "Satranga", "Unknown"],
+  ])("%s", (line, title, artist) => {
+    expect(parsePastedSongs(line).tracks[0]).toEqual({ title, artist });
+  });
+
+  it("skips blank lines and URLs", () => {
+    expect(parsePastedSongs("\nhttps://open.spotify.com/track/x\n\nA - B\n").tracks).toEqual([{ title: "A", artist: "B" }]);
+  });
+});

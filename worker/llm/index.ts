@@ -1,6 +1,7 @@
 // The rest of the app only calls generateRoast(). Providers are pure configuration.
 
 import { anthropic } from "./anthropic";
+import { azureOpenai } from "./azure-openai";
 import { gemini } from "./gemini";
 import { extractJson, validateRoast } from "./json";
 import { mock } from "./mock";
@@ -13,6 +14,7 @@ export type { ProviderConfig } from "./types";
 
 const ADAPTERS: Record<ProviderConfig["type"], Adapter> = {
   "openai-compatible": openaiCompatible,
+  "azure-openai": azureOpenai,
   anthropic,
   gemini,
   mock,
@@ -64,7 +66,13 @@ export async function generateRoast(providers: ProviderConfig[], args: Omit<Gene
   const attempts: { provider: string; outcome: string }[] = [];
   let skippedPaid = false;
 
-  for (const p of providers) {
+  for (const entry of providers) {
+    // Resolve endpoint/model from env when configured that way (keeps them out of the JSON).
+    const p: ProviderConfig = {
+      ...entry,
+      baseUrl: entry.baseUrlEnv ? ((deps.env[entry.baseUrlEnv] as string | undefined) ?? entry.baseUrl) : entry.baseUrl,
+      model: entry.modelEnv ? ((deps.env[entry.modelEnv] as string | undefined) ?? entry.model) : entry.model,
+    };
     const key = p.apiKeyEnv ? (deps.env[p.apiKeyEnv] as string | undefined) : undefined;
     if (p.apiKeyEnv && !key) {
       attempts.push({ provider: p.name, outcome: "no api key" });

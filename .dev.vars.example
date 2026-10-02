@@ -1,6 +1,12 @@
 # Copy to .dev.vars for local dev. Never commit .dev.vars.
 # Default chain uses the built-in "mock" roaster so the app works with zero keys.
 # LLM_PROVIDERS=[{"name":"groq-free","type":"openai-compatible","baseUrl":"https://api.groq.com/openai/v1","model":"openai/gpt-oss-20b","apiKeyEnv":"GROQ_API_KEY","paid":false,"maxTokens":1200},{"name":"gemini-lite","type":"openai-compatible","baseUrl":"https://generativelanguage.googleapis.com/v1beta/openai","model":"gemini-2.5-flash-lite","apiKeyEnv":"GEMINI_API_KEY","paid":true,"pricePerMTokIn":0.1,"pricePerMTokOut":0.4}]
+# Azure OpenAI example (v1 endpoint ".../openai/v1/" or classic "https://<res>.openai.azure.com"):
+# LLM_PROVIDERS=[{"name":"azure","type":"azure-openai","baseUrlEnv":"AZURE_OPENAI_ENDPOINT","modelEnv":"AZURE_OPENAI_DEPLOYMENT","apiKeyEnv":"AZURE_OPENAI_API_KEY","apiVersion":"2024-12-01-preview","paid":true,"omitTemperature":true,"reasoningEffort":"low","maxTokens":4000,"timeoutMs":30000}]
+AZURE_OPENAI_API_KEY=
+AZURE_OPENAI_ENDPOINT=
+AZURE_OPENAI_DEPLOYMENT=
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
 GROQ_API_KEY=
 GEMINI_API_KEY=
 YOUTUBE_API_KEY=

@@ -13,11 +13,14 @@ export function parsePastedSongs(text: string): Playlist {
   }
 
   const tracks: Track[] = [];
+  const SEP = /\s+[-–—]\s+|\s+by\s+/i;
   for (const raw of lines) {
-    const line = raw
-      .replace(/^\s*(?:\d{1,3}\s*[.)\]:-]|[-*•·▪►]|\d{1,3}\s+(?=\D))\s*/, "") // "1. ", "- ", "• "
-      .replace(/\s*\(?\b\d{1,2}:\d{2}(?::\d{2})?\)?\s*$/, "") // trailing durations "3:45"
-      .trim();
+    let line = raw.replace(/\s*\(?\b\d{1,2}:\d{2}(?::\d{2})?\)?\s*$/, "").trim(); // trailing durations "3:45"
+    // Leading list markers: "1. ", "2) ", "- ", "• ". A bare "295 - Sidhu Moose Wala" is a song
+    // titled "295", so a number is only treated as numbering if a "Song - Artist" pair remains.
+    const unnumbered = line.replace(/^(?:\d{1,3}\s*[.):\]]|\d{1,3}\s*[-–]|\d{1,3}\s+(?=\D))\s*/, "");
+    if (unnumbered !== line && (/^\d{1,3}\s*[.):\]]/.test(line) || SEP.test(unnumbered))) line = unnumbered;
+    line = line.replace(/^[-*•·▪►]\s*/, "").trim();
     if (!line || /^https?:\/\//i.test(line)) continue;
 
     const byMatch = /^(.+?)\s+by\s+(.+)$/i.exec(line);

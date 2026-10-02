@@ -7,11 +7,20 @@ export interface GenerateArgs {
 
 export interface ProviderConfig {
   name: string;
-  type: "openai-compatible" | "anthropic" | "gemini" | "mock";
+  type: "openai-compatible" | "azure-openai" | "anthropic" | "gemini" | "mock";
   model?: string;
   baseUrl?: string;
   /** Name of the env var holding the key. The key itself never lives in this JSON. */
   apiKeyEnv?: string;
+  /** Optional: read baseUrl / model from env vars instead (e.g. AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_DEPLOYMENT). */
+  baseUrlEnv?: string;
+  modelEnv?: string;
+  /** azure-openai (classic endpoints only): api-version query param. */
+  apiVersion?: string;
+  /** Reasoning models (e.g. GPT-5.x) only accept the default temperature. */
+  omitTemperature?: boolean;
+  /** Reasoning models: "none" | "minimal" | "low" | "medium" | "high". Lower = faster roasts. */
+  reasoningEffort?: string;
   paid?: boolean;
   headers?: Record<string, string>;
   maxTokens?: number;

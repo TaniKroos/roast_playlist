@@ -103,11 +103,27 @@ Bindings (in [wrangler.jsonc](wrangler.jsonc)): `ROAST_LIMITER` (rate limit, 5 /
 ]
 ```
 
-Per-entry fields: `name`, `type` (`openai-compatible` | `anthropic` | `gemini` | `mock`), `model`, `baseUrl`, `apiKeyEnv`, `paid`, optional `headers`, `maxTokens` (default 450 — raise to ~1200 for reasoning models), `temperature` (0.9), `timeoutMs` (20000), `jsonMode` (opt-in native JSON mode), `pricePerMTokIn/Out` (for `llm:test` cost estimates).
+Per-entry fields: `name`, `type` (`openai-compatible` | `azure-openai` | `anthropic` | `gemini` | `mock`), `model`, `baseUrl`, `apiKeyEnv`, `baseUrlEnv` / `modelEnv` (read endpoint/model from env vars), `apiVersion` (Azure classic), `omitTemperature` + `reasoningEffort` (reasoning models), `paid`, optional `headers`, `maxTokens` (default 450 — raise to ~1200 for reasoning models), `temperature` (0.9), `timeoutMs` (20000), `jsonMode` (opt-in native JSON mode), `pricePerMTokIn/Out` (for `llm:test` cost estimates).
 
 **Fallback:** try in order; move on after 429, 5xx, timeout, network error, missing key, or output that's still invalid after one "return only valid JSON" retry. All failed → "The roaster choked" + retry button. Paid providers are skipped once the daily cap is hit → "Roaster is exhausted".
 
 **Adding a provider** = add a JSON entry. A genuinely new API shape = one ~30-line file in [worker/llm/](worker/llm/) + one line in the `ADAPTERS` map.
+
+### Azure OpenAI (tested)
+
+The `azure-openai` adapter picks the connection style from the endpoint, same rule as CloudAgent: a **v1** endpoint (ends in `/openai/v1`) gets `POST {endpoint}/chat/completions` with `model` = deployment name; a **classic** endpoint gets `/openai/deployments/{deployment}/chat/completions?api-version=…`. It always sends `max_completion_tokens` (newer models reject `max_tokens`).
+
+```bash
+# .dev.vars (local) or `wrangler secret put` (production)
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_ENDPOINT=https://<resource>.cognitiveservices.azure.com/openai/v1/
+AZURE_OPENAI_DEPLOYMENT=<your deployment name>
+LLM_PROVIDERS=[{"name":"azure","type":"azure-openai","baseUrlEnv":"AZURE_OPENAI_ENDPOINT","modelEnv":"AZURE_OPENAI_DEPLOYMENT","apiKeyEnv":"AZURE_OPENAI_API_KEY","paid":true,"omitTemperature":true,"reasoningEffort":"low","maxTokens":4000,"timeoutMs":30000}]
+```
+
+For GPT-5.x reasoning deployments: `omitTemperature: true` (only the default is accepted), `reasoningEffort: "low"` keeps roasts at ~4–5 s, and `maxTokens: 4000` because the limit also covers hidden reasoning tokens. Verified on 2026-10-02 against a `gpt-5.6` deployment: ~600 input / ~200 output tokens, 4.5–4.8 s per roast, in English and Hinglish, and a prompt-injection track was ignored (and roasted).
+
+Set a **budget in the Azure portal** (Cost Management → Budgets) plus a lower tokens-per-minute quota on the deployment (Azure AI Foundry → Deployments → Edit) as the hard ceiling.
 
 ### Provider reference
 
@@ -115,6 +131,7 @@ Base URLs as documented by each provider — **double-check before use**; severa
 
 | Provider | `type` | `baseUrl` | API inputs used for training? |
 |---|---|---|---|
+| Azure OpenAI | azure-openai | your resource endpoint (`…/openai/v1/` or classic `https://<res>.openai.azure.com`) | No (Azure OpenAI doesn't use customer data for training) |
 | Groq | openai-compatible | `https://api.groq.com/openai/v1` | No (per Groq's API terms) |
 | Gemini (OpenAI endpoint) | openai-compatible | `https://generativelanguage.googleapis.com/v1beta/openai` | **Free tier: yes, may be used.** Paid tier: no |
 | Gemini (native) | gemini | `https://generativelanguage.googleapis.com/v1beta` (default) | same as above |

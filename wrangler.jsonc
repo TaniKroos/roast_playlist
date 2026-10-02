@@ -18,16 +18,19 @@
   // Anonymous aggregate counter for the daily paid-LLM kill switch: one key per day,
   // value is just an integer. No user identifiers.
   "kv_namespaces": [
-    { "binding": "COUNTERS", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+    { "binding": "COUNTERS", "id": "02d939f50a514e279df4b62460de5cda" }
   ],
   "vars": {
     "DAILY_PAID_ROAST_LIMIT": "300",
     // Max tracks sent to the LLM per roast (longer playlists are sampled). ~13 input tokens/track.
-    "LLM_MAX_TRACKS": "1000",
+    "LLM_MAX_TRACKS": "500",
     // Turnstile *test* site key (always passes). Replace in production.
-    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
-    "LLM_PROVIDERS": "[{\"name\":\"mock\",\"type\":\"mock\",\"paid\":false}]"
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAFL2VqL_z1LVKdr-",
+    "LLM_PROVIDERS": "[{\"name\":\"azure\",\"type\":\"azure-openai\",\"baseUrlEnv\":\"AZURE_OPENAI_ENDPOINT\",\"modelEnv\":\"AZURE_OPENAI_DEPLOYMENT\",\"apiKeyEnv\":\"AZURE_OPENAI_API_KEY\",\"apiVersion\":\"2024-12-01-preview\",\"paid\":true,\"omitTemperature\":true,\"reasoningEffort\":\"low\",\"maxTokens\":4000,\"timeoutMs\":30000}]"
+
   },
   // Cloudflare Web Analytics is cookie-free; enable in dashboard if wanted. No logs of bodies.
-  "observability": { "enabled": false }
+  "observability": { "enabled": false },
+  "routes": [{ "pattern": "roast.smudgee.xyz", "custom_domain": true }]
+
 }

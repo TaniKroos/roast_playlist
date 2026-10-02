@@ -7,8 +7,8 @@ import { truncate } from "../playlist-utils";
 import { LIMITS, type Playlist, type Track } from "../../shared/types";
 
 const API = "https://www.googleapis.com/youtube/v3";
-/** Hard guard: one roast never makes more than this many YouTube calls. */
-export const MAX_YT_CALLS = 3;
+/** Hard guard: 1 call for the name + 50 items per page up to the track cap (1 + 20 = 21 units). */
+export const MAX_YT_CALLS = 1 + Math.ceil(LIMITS.maxPlaylistTracks / 50);
 
 interface PlaylistsResponse {
   items?: { snippet?: { title?: string }; contentDetails?: { itemCount?: number } }[];
@@ -45,7 +45,7 @@ export async function fetchYoutubePlaylist(listId: string, apiKey: string | unde
     throw new AppError("private_playlist", "That playlist is private or doesn't exist. Make it Public/Unlisted, or paste your songs.", 404, "YouTube");
   }
 
-  // Calls 2-3: up to 100 items.
+  // Then up to 1,000 items, 50 per page (page tokens are opaque, so this is sequential).
   const tracks: Track[] = [];
   let pageToken: string | undefined;
   do {
@@ -63,7 +63,7 @@ export async function fetchYoutubePlaylist(listId: string, apiKey: string | unde
       tracks.push(cleanYoutubeTitle(title, channel));
     }
     pageToken = page.nextPageToken;
-  } while (pageToken && calls < MAX_YT_CALLS);
+  } while (pageToken && calls < MAX_YT_CALLS && tracks.length < LIMITS.maxPlaylistTracks);
 
   return {
     source: "youtube",

@@ -13,7 +13,7 @@ const ROAST = {
 };
 const okChat = (content: string) => Response.json({ choices: [{ message: { content } }], usage: { prompt_tokens: 1500, completion_tokens: 400 } });
 
-const ytPlaylist = Response.json({ items: [{ snippet: { title: "Gym but sad" } }] });
+const ytPlaylist = () => Response.json({ items: [{ snippet: { title: "Gym but sad" } }] });
 const ytItems = (n: number, next?: string) =>
   Response.json({
     nextPageToken: next,
@@ -62,12 +62,12 @@ async function roast(e: Env, body: object): Promise<{ status: number; data: Roas
 afterEach(() => vi.unstubAllGlobals());
 
 describe("POST /api/roast", () => {
-  it("YouTube happy path: ≤3 API calls, cleaned titles, stats", async () => {
+  it("YouTube happy path: one call per page, cleaned titles, stats", async () => {
     let prompt = "";
     const calls = mockFetch(async (url, init) => {
-      if (url.includes("/playlists?")) return ytPlaylist;
+      if (url.includes("/playlists?")) return ytPlaylist();
       if (url.includes("/playlistItems?") && !url.includes("pageToken")) return ytItems(50, "P2");
-      if (url.includes("/playlistItems?")) return ytItems(30, "P3");
+      if (url.includes("/playlistItems?")) return ytItems(30); // last page
       prompt = String(init?.body);
       return okChat(JSON.stringify(ROAST));
     });
@@ -84,6 +84,30 @@ describe("POST /api/roast", () => {
     expect(prompt).not.toContain("Official Video");
   });
 
+  it("YouTube: reads up to 1,000 tracks (21 calls max), stats over all, LLM gets a 60-track sample", async () => {
+    let prompt = "";
+    let pages = 0;
+    const calls = mockFetch(async (url, init) => {
+      if (url.includes("/playlists?")) return ytPlaylist();
+      if (url.includes("/playlistItems?")) return ytItems(50, `P${++pages}`); // never-ending playlist
+      prompt = String(init?.body);
+      return okChat(JSON.stringify(ROAST));
+    });
+    const { data } = await roast(env([free]), { mode: "link", input: "https://youtube.com/playlist?list=PL1234567890abcdef" });
+    expect(calls.filter((c) => c.includes("googleapis")).length).toBe(21);
+    expect(data.ok && data.meta.stats.trackCount).toBe(1000);
+    const user = (JSON.parse(prompt) as { messages: { content: string }[] }).messages[1].content;
+    expect(user).toContain('"totalTracks":1000');
+    expect(user).toContain('"sampledTracks":60');
+  });
+
+  it("paste mode accepts 1,000 songs", async () => {
+    mockFetch(() => okChat(JSON.stringify(ROAST)));
+    const songs = Array.from({ length: 1000 }, (_, i) => `Song ${i} - Artist ${i % 40}`).join("\n");
+    const { data } = await roast(env([free]), { mode: "paste", input: songs });
+    expect(data.ok && data.meta.stats.trackCount).toBe(1000);
+  });
+
   it("private YouTube playlist → friendly error", async () => {
     mockFetch(() => Response.json({ items: [] }));
     const { status, data } = await roast(env([free]), { mode: "link", input: "https://youtube.com/playlist?list=PLprivate12345" });
@@ -91,10 +115,57 @@ describe("POST /api/roast", () => {
     expect(!data.ok && data.code).toBe("private_playlist");
   });
 
-  it("Spotify → paste-mode fallback error", async () => {
-    mockFetch(() => new Response("nope", { status: 500 }));
-    const { data } = await roast(env([free]), { mode: "link", input: "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M" });
-    expect(!data.ok && data.code).toBe("spotify_unsupported");
+  it("Spotify embed page is parsed (no login)", async () => {
+    const page = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: { pageProps: { state: { data: { entity: { name: "Hot Hits Hindi", trackList: [
+        { title: "Tum Hi Ho", subtitle: "Arijit Singh" },
+        { title: "Kesariya", subtitle: "Pritam,\u00a0Arijit Singh" },
+        { title: "Husn", subtitle: "Anuv Jain" },
+      ] } } } } },
+    })}</script>`;
+    const calls = mockFetch((url) => (url.startsWith("https://open.spotify.com/embed/playlist/") ? new Response(page) : okChat(JSON.stringify(ROAST))));
+    const { data } = await roast(env([free]), { mode: "link", input: "https://open.spotify.com/playlist/37i9dQZF1DX0XUfTFmNBRM?si=abc" });
+    expect(calls[1]).toBe("https://open.spotify.com/embed/playlist/37i9dQZF1DX0XUfTFmNBRM");
+    expect(data.ok).toBe(true);
+    if (data.ok) {
+      expect(data.meta.source).toBe("spotify");
+      expect(data.meta.playlistName).toBe("Hot Hits Hindi");
+      // non-breaking spaces from the embed are normalised; primary artist of "Pritam, Arijit Singh" is Pritam
+      expect(data.meta.stats.topArtists.map((a) => a.artist).sort()).toEqual(["Anuv Jain", "Arijit Singh", "Pritam"]);
+      expect(data.meta.stats.uniqueArtists).toBe(3);
+    }
+  });
+
+  it("private / missing Spotify playlist → friendly error", async () => {
+    const page = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { status: 500, title: "Page not available" } } })}</script>`;
+    mockFetch(() => new Response(page));
+    const { status, data } = await roast(env([free]), { mode: "link", input: "spotify:playlist:AAAAAAAAAAAAAAAAAAAAAA" });
+    expect(status).toBe(404);
+    expect(!data.ok && data.code).toBe("private_playlist");
+  });
+
+  it("Spotify short link is resolved via redirect, only to Spotify hosts", async () => {
+    const calls = mockFetch((url) => {
+      if (url.startsWith("https://spotify.link/")) return new Response(null, { status: 307, headers: { location: "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=1" } });
+      if (url.includes("/embed/playlist/")) return new Response(`<script id="__NEXT_DATA__">${JSON.stringify({ props: { pageProps: { state: { data: { entity: { name: "x", trackList: [{ title: "a", subtitle: "b" }] } } } } } })}</script>`);
+      return okChat(JSON.stringify(ROAST));
+    });
+    const { data } = await roast(env([free]), { mode: "link", input: "https://spotify.link/AbCdEf" });
+    expect(data.ok).toBe(true);
+    expect(calls).toContain("https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M");
+  });
+
+  it("Spotify short link redirecting off-Spotify is refused", async () => {
+    const calls = mockFetch((url) => (url.startsWith("https://spotify.link/") ? new Response(null, { status: 302, headers: { location: "https://evil.example/x" } }) : okChat("{}")));
+    const { data } = await roast(env([free]), { mode: "link", input: "https://spotify.link/AbCdEf" });
+    expect(!data.ok && data.code).toBe("invalid_link");
+    expect(calls.some((c) => c.includes("evil.example"))).toBe(false);
+  });
+
+  it("Spotify track/album links are rejected as not-a-playlist", async () => {
+    mockFetch(() => okChat("{}"));
+    const { data } = await roast(env([free]), { mode: "link", input: "https://open.spotify.com/track/7bxaFZ1O3cHkgLKMsdC3xR" });
+    expect(!data.ok && data.code).toBe("invalid_link");
   });
 
   it("Apple Music page is parsed", async () => {
@@ -185,8 +256,8 @@ describe("POST /api/roast", () => {
   it("enforces input limits", async () => {
     mockFetch(() => okChat(JSON.stringify(ROAST)));
     expect((await roast(env([free]), { mode: "link", input: "https://youtube.com/" + "a".repeat(300) })).data).toMatchObject({ code: "too_long" });
-    expect((await roast(env([free]), { mode: "paste", input: Array(101).fill("song").join("\n") })).data).toMatchObject({ code: "too_long" });
-    expect((await roast(env([free]), { mode: "paste", input: "x".repeat(6001) })).data).toMatchObject({ code: "too_long" });
+    expect((await roast(env([free]), { mode: "paste", input: Array(1001).fill("song").join("\n") })).data).toMatchObject({ code: "too_long" });
+    expect((await roast(env([free]), { mode: "paste", input: "x".repeat(60_001) })).data).toMatchObject({ code: "too_long" });
   });
 
   it("does not log request data", async () => {

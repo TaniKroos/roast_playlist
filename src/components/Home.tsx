@@ -28,7 +28,9 @@ function detect(link: string): Detection {
     case "apple":
       return { tone: "good", icon: <AppleMusicIcon />, label: "Apple Music", hint: "Public Apple Music playlist. Best effort, fingers crossed." };
     case "spotify":
-      return { tone: "warn", icon: <SpotifyIcon />, label: "Spotify", hint: "Spotify blocks this without a login. Paste your songs instead." };
+      return info.playlistId || info.shortUrl
+        ? { tone: "good", icon: <SpotifyIcon />, label: "Spotify", hint: "Public Spotify playlist. We read up to 100 tracks." }
+        : { tone: "bad", icon: <SpotifyIcon />, label: "Spotify", hint: "That's a Spotify link, but not a playlist. Share the playlist itself." };
     case "unsupported":
       return { tone: "warn", icon: <WarnIcon />, label: info.name.length > 14 ? "Unsupported" : info.name, hint: `${info.name} links aren't supported. Paste your songs instead.` };
     case "invalid":
@@ -151,7 +153,7 @@ export function Home({ form, setForm, onSubmit }: Props) {
                   )}
                 </span>
               ) : (
-                <span>YouTube, YouTube Music &amp; Apple Music links work. Anything else → paste songs.</span>
+                <span>Spotify, YouTube, YouTube Music &amp; Apple Music links work. Anything else → paste songs.</span>
               )}
             </div>
           </>
@@ -171,7 +173,7 @@ export function Home({ form, setForm, onSubmit }: Props) {
               />
             </div>
             <div className="hint" id="songs-hint">
-              <span>Works for Spotify, JioSaavn, Amazon, anything. "Song - Artist" is best.</span>
+              <span>Works for JioSaavn, Amazon, anything. "Song - Artist" is best.</span>
               <span className={`counter${tooLong ? " over" : ""}`}>
                 {songLines}/{LIMITS.pasteMaxLines}
               </span>
@@ -221,7 +223,7 @@ export function Home({ form, setForm, onSubmit }: Props) {
         <div className="step">
           <span className="n">01</span>
           <h3>Drop it</h3>
-          <p>A public YouTube / Apple Music playlist, or just type your songs.</p>
+          <p>A public Spotify, YouTube or Apple Music playlist, or just type your songs.</p>
         </div>
         <div className="step">
           <span className="n">02</span>

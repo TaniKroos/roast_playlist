@@ -20,8 +20,7 @@ export function Privacy({ onBack }: { onBack: () => void }) {
       <ul>
         <li>Your link or song list goes to our server (a Cloudflare Worker) over HTTPS.</li>
         <li>
-          If it's a link, we fetch the public track list from YouTube or Apple Music. If it's Spotify, we don't fetch anything. Spotify
-          now requires a login, and we don't do logins.
+          If it's a link, we fetch the public track list from YouTube, Spotify's public embed player, or Apple Music. No logins, ever.
         </li>
         <li>
           We send up to 60 song titles and artists (plus the playlist name) to an AI model to write the roast. Nothing else: no IP, no

@@ -3,7 +3,6 @@ import { RedoIcon } from "./Icons";
 
 const TITLES: Partial<Record<ErrorCode, [string, string]>> = {
   private_playlist: ["🔒", "That playlist is hiding."],
-  spotify_unsupported: ["🙅", "Spotify said no."],
   unsupported_platform: ["🤷", "Can't read that one."],
   invalid_link: ["🧐", "That's not a playlist link."],
   empty_playlist: ["🦗", "It's… empty."],
@@ -15,7 +14,7 @@ const TITLES: Partial<Record<ErrorCode, [string, string]>> = {
   source_unavailable: ["📡", "Couldn't fetch it."],
 };
 
-const PASTE_WAY_OUT: ErrorCode[] = ["private_playlist", "spotify_unsupported", "unsupported_platform", "invalid_link", "source_unavailable", "empty_playlist"];
+const PASTE_WAY_OUT: ErrorCode[] = ["private_playlist", "unsupported_platform", "invalid_link", "source_unavailable", "empty_playlist"];
 const RETRYABLE: ErrorCode[] = ["roaster_choked", "rate_limited", "captcha_failed", "source_unavailable"];
 
 interface Props {
@@ -36,20 +35,10 @@ export function ErrorView({ code, message, onPaste, onRetry, onBack }: Props) {
       <h2>{title}</h2>
       <p>{message}</p>
 
-      {code === "spotify_unsupported" && (
-        <div className="howto">
-          <b>Quick way to grab your Spotify songs:</b>
-          <ol>
-            <li>Open the playlist and screenshot the track list, or just jot down your top 10–30 songs.</li>
-            <li>Type them one per line, like <b>Song - Artist</b>.</li>
-            <li>Hit roast. Same burn, zero logins.</li>
-          </ol>
-        </div>
-      )}
       {code === "private_playlist" && (
         <div className="howto">
-          <b>Make it visible:</b> in YouTube, open the playlist → ⋮ → <b>Privacy</b> → set to <b>Public</b> or <b>Unlisted</b>. Personal mixes
-          ("My Mix", Liked videos) can't be read. Paste those songs instead.
+          <b>Make it visible:</b> on <b>YouTube</b>, playlist → ⋮ → Privacy → <b>Public</b> or <b>Unlisted</b>. On <b>Spotify</b>, playlist → ⋯ →
+          <b>Add to profile</b> / make it public. Personal mixes (Liked Songs, "My Mix") can't be read. Paste those songs instead.
         </div>
       )}
 

@@ -26,9 +26,12 @@ describe("parsePlaylistLink", () => {
     ["https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=xyz", "37i9dQZF1DXcBWIGoYBM5M"],
     ["https://open.spotify.com/intl-en/playlist/37i9dQZF1DXcBWIGoYBM5M", "37i9dQZF1DXcBWIGoYBM5M"],
     ["spotify:playlist:37i9dQZF1DXcBWIGoYBM5M", "37i9dQZF1DXcBWIGoYBM5M"],
-    ["https://spotify.link/AbCdEf", null],
   ])("Spotify: %s", (url, id) => {
     expect(parsePlaylistLink(url)).toEqual({ platform: "spotify", playlistId: id });
+  });
+
+  it("Spotify short links keep a sanitised URL to resolve", () => {
+    expect(parsePlaylistLink("https://spotify.link/AbCdEf?x=1")).toEqual({ platform: "spotify", playlistId: null, shortUrl: "https://spotify.link/AbCdEf" });
   });
 
   it("Apple Music: rebuilds a safe URL", () => {

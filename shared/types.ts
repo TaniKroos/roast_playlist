@@ -44,7 +44,6 @@ export type ErrorCode =
   | "bad_request"
   | "invalid_link"
   | "unsupported_platform"
-  | "spotify_unsupported"
   | "private_playlist"
   | "empty_playlist"
   | "source_unavailable"
@@ -70,8 +69,11 @@ export interface PublicConfig {
 
 export const LIMITS = {
   urlMaxChars: 300,
-  pasteMaxLines: 100,
-  pasteMaxChars: 6000,
+  /** Max tracks read per playlist; stats cover all of them. */
+  maxPlaylistTracks: 1000,
+  pasteMaxLines: 1000,
+  pasteMaxChars: 60_000,
+  /** Tracks actually sent to the LLM (sampled), to keep cost and latency flat. */
   trackCap: 60,
   fieldMaxChars: 60,
   playlistNameMaxChars: 80,

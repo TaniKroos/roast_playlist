@@ -2,6 +2,7 @@ import { AppError } from "../errors";
 import { parsePlaylistLink } from "../../shared/parse-url";
 import { fetchYoutubePlaylist } from "./youtube";
 import { fetchApplePlaylist } from "./apple";
+import { fetchSpotifyPlaylist, resolveSpotifyShortLink } from "./spotify";
 import { parsePastedSongs } from "./paste";
 import { LIMITS, type InputMode, type Playlist } from "../../shared/types";
 
@@ -19,15 +20,11 @@ export async function loadPlaylist(mode: InputMode, input: string, env: SourceEn
       return fetchYoutubePlaylist(link.listId, env.YOUTUBE_API_KEY, fetchImpl);
     case "apple":
       return fetchApplePlaylist(link.url, fetchImpl);
-    case "spotify":
-      // Since Feb 2026 Spotify only returns playlist items to the playlist's owner/collaborators,
-      // and Client Credentials is being phased out for metadata. No login allowed → paste mode.
-      throw new AppError(
-        "spotify_unsupported",
-        "Spotify locked its playlists behind a login in 2026, and we don't do logins. Paste your songs instead.",
-        422,
-        "Spotify",
-      );
+    case "spotify": {
+      const id = link.playlistId ?? (await resolveSpotifyShortLink(link.shortUrl ?? "", fetchImpl).catch(() => null));
+      if (!id) throw new AppError("invalid_link", "That Spotify link isn't a playlist. Share the playlist itself (⋯ → Share → Copy link).", 400, "Spotify");
+      return fetchSpotifyPlaylist(id, fetchImpl);
+    }
     case "unsupported":
       throw new AppError("unsupported_platform", `We can't read ${link.name} links (yet). Paste your songs and we'll roast them anyway.`, 422, link.name);
     case "invalid":

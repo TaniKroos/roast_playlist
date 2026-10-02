@@ -6,7 +6,7 @@ import { ChainError, generateRoast, parseProviders } from "./llm";
 import { computeStats, sampleTracks } from "./playlist-utils";
 import { buildSystemPrompt, buildUserPrompt } from "./prompt";
 import { loadPlaylist } from "./sources";
-import type { Language, PublicConfig, RoastRequest, RoastResponse } from "../shared/types";
+import { LIMITS, type Language, type PublicConfig, type RoastRequest, type RoastResponse } from "../shared/types";
 
 export interface Env {
   ASSETS: Fetcher;
@@ -52,7 +52,7 @@ export default {
 
 async function readBody(request: Request): Promise<RoastRequest> {
   const text = await request.text();
-  if (text.length > 10_000) throw new AppError("too_long", "Request too large.", 413);
+  if (text.length > 80_000) throw new AppError("too_long", "Request too large.", 413);
   let body: Partial<RoastRequest>;
   try {
     body = JSON.parse(text);
@@ -79,7 +79,8 @@ async function handleRoast(request: Request, env: Env): Promise<Response> {
     throw new AppError("captcha_failed", "We couldn't confirm you're human. Refresh and try again.", 403);
   }
 
-  const playlist = await loadPlaylist(req.mode, req.input, env);
+  const loaded = await loadPlaylist(req.mode, req.input, env);
+  const playlist = { ...loaded, tracks: loaded.tracks.slice(0, LIMITS.maxPlaylistTracks) };
   if (!playlist.tracks.length) throw new AppError("empty_playlist", "That playlist is empty. Even we can't roast silence.", 422);
 
   const stats = computeStats(playlist.tracks);

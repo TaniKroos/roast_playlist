@@ -2,7 +2,7 @@
 
 export type LinkInfo =
   | { platform: "youtube"; listId: string }
-  | { platform: "spotify"; playlistId: string | null }
+  | { platform: "spotify"; playlistId: string | null; shortUrl?: string }
   | { platform: "apple"; url: string }
   | { platform: "unsupported"; name: string }
   | { platform: "invalid" };
@@ -48,7 +48,7 @@ export function parsePlaylistLink(raw: string): LinkInfo {
     return { platform: "spotify", playlistId: m ? m[1] : null };
   }
   if (host === "spotify.link" || host === "spotify.app.link") {
-    return { platform: "spotify", playlistId: null };
+    return { platform: "spotify", playlistId: null, shortUrl: `https://${host}${url.pathname}` };
   }
 
   if (host === "music.apple.com" || host === "itunes.apple.com") {

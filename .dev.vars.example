@@ -1,0 +1,8 @@
+# Copy to .dev.vars for local dev. Never commit .dev.vars.
+# Default chain uses the built-in "mock" roaster so the app works with zero keys.
+# LLM_PROVIDERS=[{"name":"groq-free","type":"openai-compatible","baseUrl":"https://api.groq.com/openai/v1","model":"openai/gpt-oss-20b","apiKeyEnv":"GROQ_API_KEY","paid":false,"maxTokens":1200},{"name":"gemini-lite","type":"openai-compatible","baseUrl":"https://generativelanguage.googleapis.com/v1beta/openai","model":"gemini-2.5-flash-lite","apiKeyEnv":"GEMINI_API_KEY","paid":true,"pricePerMTokIn":0.1,"pricePerMTokOut":0.4}]
+GROQ_API_KEY=
+GEMINI_API_KEY=
+YOUTUBE_API_KEY=
+# Turnstile test secret: always passes. Use the real one in production.
+TURNSTILE_SECRET=1x0000000000000000000000000000000AA
